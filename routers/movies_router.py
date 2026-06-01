@@ -73,7 +73,7 @@ async def get_trending_movies(
 
 @router.get("/genres")
 async def get_genres():
-    return await tmdb_get("/genres/movie/list")
+    return await tmdb_get("/genre/movie/list")
 
 
 @router.get("/search")
