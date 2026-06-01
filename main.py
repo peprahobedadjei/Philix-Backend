@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
 from database import engine, Base
-from routers import auth_router
+from routers import auth_router,movies_router
 
 load_dotenv()
 
@@ -29,6 +29,7 @@ app.add_middleware(
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(auth_router.router)
+app.include_router(movies_router.router)
 
 
 @app.get("/", tags=["Health"])
