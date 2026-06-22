@@ -1,5 +1,5 @@
 from fastapi import APIRouter,Response,Depends, HTTPException
-from auth import create_access_token, hash_password, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import create_access_token, hash_password, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, get_current_user
 import schemas
 from sqlalchemy.orm import Session
 from database import get_db
@@ -55,3 +55,38 @@ def signup(body:schemas.SignupRequest, respose:Response, db:Session= Depends(get
     return {"message":"Account created succesfully", "user":user}
 
 
+@router.post("/login", response_model= schemas.TokenResponse)
+def login (body:schemas.LoginRequest, response:Response, db:Session=Depends(get_db)):
+    """"Login with email + Password in request body. JWT returned as httpOnly cookie"""
+    user =db.query(models.User).filter(models.User.email==body.email).first()
+    if not user or not verify_password (body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password ")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account deactivated")
+    
+    token=create_access_token(
+        data={"sub":str(user.id)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite='lax' ,#CSRF Protection
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES,
+        secure=IS_PRODUCTION
+    )
+    return {"message":"Login Successful", "user":user}
+
+
+@router.post("/logout", response_model= schemas.MessageResponse)
+def logout(response:Response, current_user:models.User =Depends(get_current_user)):
+    """"Clear the auth cookie to log out"""    
+    response.delete_cookie(key="access_token")
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/me", response_model=schemas.UserResponse)
+def me(current_user:models.User=Depends(get_current_user)):
+    return current_user
